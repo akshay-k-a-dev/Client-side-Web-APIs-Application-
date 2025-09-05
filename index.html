@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pocket Explorer — Client‑side Web APIs Demo</title>
+  <meta name="description" content="A single‑file demo app showing Fetch, Geolocation, Notifications, Clipboard, Speech, and client‑side storage with a lightweight offline cache." />
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#121a33;--soft:#1c264a;--text:#e9eefb;--muted:#9fb0d0;--brand:#7c5cff;--ok:#3bd671;--warn:#ffd166;--err:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);background:var(--bg);} 
+    a{color:var(--brand);text-decoration:none}
+    .app{max-width:1000px;margin:0 auto;padding:24px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:clamp(20px,3.2vw,32px);margin:0}
+    .badge{font-size:12px;padding:4px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+    .card{background:linear-gradient(180deg,var(--panel),#0f1630);border:1px solid #1d2a55;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .card h2{margin:0 0 8px;font-size:18px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button, input, select{background:var(--soft);color:var(--text);border:1px solid #2a3a73;border-radius:12px;padding:10px 12px;font:inherit}
+    button{cursor:pointer}
+    button.primary{background:var(--brand);border-color:#5e3fff}
+    button.ghost{background:transparent}
+    .muted{color:var(--muted)}
+    .imgbox{position:relative;border-radius:12px;overflow:hidden;border:1px solid #293a7a;background:#0a0f22;min-height:180px;display:grid;place-items:center}
+    .imgbox img{max-width:100%;max-height:320px;display:block}
+    .list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding-right:4px}
+    .list .item{display:flex;align-items:center;justify-content:space-between;background:#0c1330;border:1px solid #24366f;border-radius:12px;padding:10px 12px}
+    .pill{padding:4px 8px;border-radius:999px;background:#0f1a44;border:1px solid #2a3f8a;color:#aac4ff;font-size:12px}
+    .switch{position:relative;width:48px;height:28px;background:#223066;border-radius:999px;border:1px solid #2a3a73}
+    .switch input{opacity:0;width:0;height:0}
+    .dot{position:absolute;top:3px;left:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:.2s}
+    .switch.on{background:var(--brand)}
+    .switch.on .dot{transform:translateX(20px)}
+    footer{margin-top:24px;color:var(--muted);font-size:13px}
+    .ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}
+    .spacer{height:8px}
+    .small{font-size:12px}
+    .tooltip{border-bottom:1px dotted #789;cursor:help}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>📦 Pocket Explorer <span class="badge">Client‑side Web APIs</span></h1>
+        <div class="muted small">Fetch • Geolocation • Notifications • Clipboard • Speech • localStorage • Cache (SW)</div>
+      </div>
+      <div class="row">
+        <label class="row" title="Toggle dark mode (stored in localStorage)">
+          <span class="muted small">Dark mode</span>
+          <span class="switch" id="themeSwitch"><span class="dot"></span><input type="checkbox" id="themeToggle" /></span>
+        </label>
+        <button id="clearData" class="ghost" title="Clear saved preferences & favorites">🧹 Reset</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="card" id="cardGeo">
+        <h2>📍 Sun Times Near You</h2>
+        <p class="muted small">Uses <span class="tooltip" title="Browser Geolocation API">Geolocation</span> + <span class="tooltip" title="sunrise-sunset.org">Sunrise‑Sunset API</span> via <span class="tooltip" title="Window.fetch">Fetch</span>.</p>
+        <div class="row">
+          <button class="primary" id="btnLocate">Get My Sunrise/Sunset</button>
+          <span id="geoStatus" class="muted small">Awaiting action…</span>
+        </div>
+        <div class="spacer"></div>
+        <div id="sunTimes" class="list"></div>
+      </div>
+
+      <div class="card">
+        <h2>🐶 Random Doggo</h2>
+        <p class="muted small">Fetches from <span class="tooltip" title="https://dog.ceo/dog-api/">Dog CEO API</span>. Copy URL with Clipboard. Save favorites (localStorage).</p>
+        <div class="row">
+          <button id="btnDog" class="primary">New Dog Image</button>
+          <button id="btnCopyDog">Copy Image URL</button>
+          <button id="btnFavDog">⭐ Save Favorite</button>
+          <span id="dogStatus" class="muted small"></span>
+        </div>
+        <div class="spacer"></div>
+        <div class="imgbox"><img id="dogImg" alt="Dog" /></div>
+        <div class="spacer"></div>
+        <div>
+          <h3 class="small muted" style="margin:0 0 6px">Favorites</h3>
+          <div id="dogFavs" class="list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>💬 Pocket Advice</h2>
+        <p class="muted small">Gets a tip from <span class="tooltip" title="https://api.adviceslip.com">Advice Slip API</span>. Read aloud with <span class="tooltip" title="SpeechSynthesis API">Speech</span> & notify with <span class="tooltip" title="Notifications API">Notifications</span>.</p>
+        <div class="row">
+          <button id="btnAdvice" class="primary">New Advice</button>
+          <button id="btnSpeak">🔊 Speak</button>
+          <button id="btnCopyAdvice">Copy</button>
+          <span id="adviceStatus" class="muted small"></span>
+        </div>
+        <div class="spacer"></div>
+        <div id="adviceText" class="pill">(tap “New Advice”)</div>
+      </div>
+
+      <div class="card">
+        <h2>👤 GitHub Lookup</h2>
+        <p class="muted small">Type a GitHub username to fetch profile data (no key required). Shows basic info.</p>
+        <div class="row">
+          <input id="ghUser" placeholder="octocat" />
+          <button id="btnGH" class="primary">Lookup</button>
+          <span id="ghStatus" class="muted small"></span>
+        </div>
+        <div class="spacer"></div>
+        <div id="ghResult" class="list"></div>
+      </div>
+    </section>
+
+    <footer>
+      Built for the <strong>Client‑side Web APIs</strong> task. Single‑file app; installs a Service Worker for basic offline caching (you can toggle network throttling to test). Data from public, no‑key APIs. No server required.
+    </footer>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const $ = sel => document.querySelector(sel);
+    const el = (tag, attrs={}, ...children) => {
+      const n = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v]) => {
+        if (k === 'class') n.className = v;
+        else if (k === 'html') n.innerHTML = v;
+        else n.setAttribute(k,v);
+      });
+      children.flat().forEach(c => n.append(c.nodeType ? c : document.createTextNode(c)));
+      return n;
+    };
+
+    // ---------- Theme (localStorage) ----------
+    const themeKey = 'pe:dark';
+    const themeToggle = $('#themeToggle');
+    const themeSwitch = $('#themeSwitch');
+
+    const applyTheme = (dark) => {
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      themeSwitch.classList.toggle('on', !!dark);
+      themeToggle.checked = !!dark;
+      localStorage.setItem(themeKey, dark ? '1' : '0');
+    };
+    applyTheme(localStorage.getItem(themeKey) === '1');
+    themeToggle.addEventListener('change', (e) => applyTheme(e.target.checked));
+
+    // ---------- Notifications permission ----------
+    let notifyOK = false;
+    const ensureNotify = async () => {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission === 'granted') return notifyOK = true;
+      if (Notification.permission !== 'denied') {
+        const p = await Notification.requestPermission();
+        notifyOK = (p === 'granted');
+      }
+      return notifyOK;
+    };
+    ensureNotify();
+
+    const toast = (title, body) => {
+      if (!notifyOK) return; 
+      try { new Notification(title, { body }); } catch {}
+    };
+
+    // ---------- Geolocation + Sunrise/Sunset ----------
+    const geoStatus = $('#geoStatus');
+    const sunTimes = $('#sunTimes');
+    $('#btnLocate').addEventListener('click', () => {
+      geoStatus.textContent = 'Locating…';
+      if (!navigator.geolocation) {
+        geoStatus.innerHTML = 'Geolocation not supported';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const { latitude:lat, longitude:lng } = pos.coords;
+        geoStatus.innerHTML = `Got location: <span class="ok">${lat.toFixed(4)}, ${lng.toFixed(4)}</span>. Fetching…`;
+        try {
+          const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(r.statusText);
+          const data = await r.json();
+          const s = data.results;
+          sunTimes.replaceChildren(
+            el('div',{class:'item'}, el('span',{}, 'Sunrise'), el('span',{}, new Date(s.sunrise).toLocaleTimeString())),
+            el('div',{class:'item'}, el('span',{}, 'Sunset'),  el('span',{}, new Date(s.sunset).toLocaleTimeString())),
+            el('div',{class:'item'}, el('span',{}, 'Day length'), el('span',{}, s.day_length))
+          );
+          geoStatus.textContent = 'Done';
+          toast('Sun times ready', 'We fetched sunrise and sunset for your location.');
+        } catch (e) {
+          geoStatus.innerHTML = `Error: <span class="err">${e.message}</span>`;
+        }
+      }, err => {
+        geoStatus.innerHTML = `Denied/failed: <span class="err">${err.message}</span>`;
+      }, { enableHighAccuracy:false, timeout:10000, maximumAge:60000 });
+    });
+
+    // ---------- Dog API + Favorites (localStorage) + Clipboard ----------
+    const dogImg = $('#dogImg');
+    const dogStatus = $('#dogStatus');
+    const dogFavs = $('#dogFavs');
+    const favKey = 'pe:dog:favs';
+    const readFavs = () => JSON.parse(localStorage.getItem(favKey) || '[]');
+    const writeFavs = (arr) => localStorage.setItem(favKey, JSON.stringify(arr.slice(0, 25))); // limit
+
+    const renderFavs = () => {
+      const f = readFavs();
+      dogFavs.replaceChildren(...f.map(url => el('div',{class:'item'},
+        el('a',{href:url,target:'_blank'}, url.split('/').slice(-1)[0]),
+        el('span',{},
+          el('button',{title:'Copy',onclick:()=>navigator.clipboard?.writeText(url)}, 'Copy'), ' ',
+          el('button',{title:'Remove',onclick:()=>{writeFavs(f.filter(x=>x!==url)); renderFavs();}}, 'Remove')
+        )
+      )));
+      if (!f.length) dogFavs.append(el('div',{class:'muted small'},'No favorites yet.'))
+    };
+
+    const loadDog = async () => {
+      dogStatus.textContent = 'Fetching…';
+      try{
+        const r = await fetch('https://dog.ceo/api/breeds/image/random');
+        if (!r.ok) throw new Error(r.statusText);
+        const { message:url } = await r.json();
+        dogImg.src = url;
+        dogImg.alt = 'A very good dog';
+        dogStatus.textContent = 'Done';
+        toast('New doggo!', 'Tap to see your random dog.');
+      }catch(e){
+        dogStatus.innerHTML = `Error: <span class='err'>${e.message}</span>`;
+      }
+    };
+
+    $('#btnDog').addEventListener('click', loadDog);
+    $('#btnCopyDog').addEventListener('click', async ()=>{
+      if (!dogImg.src) return;
+      try{ await navigator.clipboard.writeText(dogImg.src); dogStatus.textContent='Copied URL'; }
+      catch{ dogStatus.textContent='Clipboard not available'; }
+    });
+    $('#btnFavDog').addEventListener('click', ()=>{
+      if (!dogImg.src) return;
+      const f = readFavs();
+      if (!f.includes(dogImg.src)) { f.unshift(dogImg.src); writeFavs(f); renderFavs(); dogStatus.textContent='Saved ⭐'; }
+      else dogStatus.textContent='Already in favorites';
+    });
+
+    renderFavs();
+
+    // ---------- Advice + Speech + Clipboard ----------
+    const adviceText = $('#adviceText');
+    const adviceStatus = $('#adviceStatus');
+
+    const getAdvice = async () => {
+      adviceStatus.textContent = 'Fetching…';
+      try {
+        // Cache-bust per API docs
+        const r = await fetch('https://api.adviceslip.com/advice?ts=' + Date.now());
+        if (!r.ok) throw new Error(r.statusText);
+        const data = await r.json();
+        adviceText.textContent = '“' + data.slip.advice + '”';
+        adviceStatus.textContent = 'Done';
+        toast('New advice', data.slip.advice);
+      } catch (e) {
+        adviceStatus.innerHTML = `Error: <span class='err'>${e.message}</span>`;
+      }
+    };
+
+    $('#btnAdvice').addEventListener('click', getAdvice);
+
+    let utterance;
+    $('#btnSpeak').addEventListener('click', ()=>{
+      const txt = adviceText.textContent?.trim();
+      if (!txt) return;
+      try {
+        utterance?.cancel && speechSynthesis.cancel();
+        utterance = new SpeechSynthesisUtterance(txt.replace(/[“”]/g,''));
+        speechSynthesis.speak(utterance);
+      } catch {}
+    });
+
+    $('#btnCopyAdvice').addEventListener('click', async ()=>{
+      const txt = adviceText.textContent?.trim();
+      if (!txt) return;
+      try { await navigator.clipboard.writeText(txt); adviceStatus.textContent='Copied'; }
+      catch { adviceStatus.textContent='Clipboard not available'; }
+    });
+
+    // ---------- GitHub Lookup ----------
+    const ghResult = $('#ghResult');
+    const ghStatus = $('#ghStatus');
+    const lookupGH = async (u) => {
+      if (!u) return;
+      ghStatus.textContent = 'Fetching…';
+      ghResult.replaceChildren();
+      try {
+        const r = await fetch('https://api.github.com/users/' + encodeURIComponent(u));
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        const d = await r.json();
+        ghResult.append(
+          el('div',{class:'item'}, el('span',{},'Name'), el('span',{}, d.name || '(none)')),
+          el('div',{class:'item'}, el('span',{},'Public Repos'), el('span',{}, d.public_repos)),
+          el('div',{class:'item'}, el('span',{},'Followers'), el('span',{}, d.followers)),
+          el('div',{class:'item'}, el('span',{},'Profile'), el('a',{href:d.html_url,target:'_blank'}, d.login))
+        );
+        ghStatus.textContent = 'Done';
+      } catch (e) {
+        ghStatus.innerHTML = `Error: <span class='err'>${e.message}</span>`;
+      }
+    };
+    $('#btnGH').addEventListener('click', ()=> lookupGH($('#ghUser').value.trim()))
+
+    // ---------- Reset ----------
+    $('#clearData').addEventListener('click', ()=>{
+      localStorage.removeItem(themeKey);
+      localStorage.removeItem(favKey);
+      applyTheme(false);
+      renderFavs();
+    });
+
+    // ---------- Service Worker (single-file trick) ----------
+    // We create a Blob URL for an inline SW so we can stay single‑file.
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE = 'pe-cache-v1';
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
+          self.skipWaiting();
+        });
+        self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+        const toCache = (url) => url.startsWith(self.location.origin);
+        self.addEventListener('fetch', e => {
+          const url = new URL(e.request.url);
+          // Cache HTML and same-origin assets; pass-through APIs.
+          if (e.request.method === 'GET' && (url.origin === location.origin)) {
+            e.respondWith(
+              caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+                const copy = res.clone();
+                caches.open(CACHE).then(c => c.put(e.request, copy));
+                return res;
+              }).catch(()=> cached))
+            );
+          }
+        });
+      `;
+      const blob = new Blob([swCode], { type:'text/javascript' });
+      const swURL = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swURL).catch(()=>{});
+    }
+
+    // ---------- Warm‑start ----------
+    loadDog();
+  </script>
+</body>
+</html>
