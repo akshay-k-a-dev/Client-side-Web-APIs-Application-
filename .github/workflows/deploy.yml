@@ -4,7 +4,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main   # or your default branch
+      - main
   workflow_dispatch:
 
 permissions:
@@ -23,14 +23,15 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # If you had a build step (npm run build), add it here.
-      # For static HTML only, just continue.
-
-      - name: Upload artifact
+      # Upload site files as a uniquely named artifact
+      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./   # root of repo, change if your HTML is inside /dist or /public
+          name: app   # 👈 give it a custom name
+          path: ./        # change if your site is in /dist or /public
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: app  # 👈 match the name above
