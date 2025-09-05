@@ -1,0 +1,36 @@
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main   # or your default branch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # If you had a build step (npm run build), add it here.
+      # For static HTML only, just continue.
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./   # root of repo, change if your HTML is inside /dist or /public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
